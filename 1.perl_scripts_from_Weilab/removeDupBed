@@ -1,0 +1,167 @@
+#!/usr/bin/env perl 
+#===============================================================================
+#
+#      COMPANY:  Group of Epigenome Biology, PICB
+#      VERSION:  1.0
+#      CREATED:  04/25/2013 09:01:45 PM
+#     REVISION:  ---
+#===============================================================================
+
+use strict;
+use warnings;
+use Getopt::Long;    # GetOptions
+
+my $input;
+my $output;
+my $duplication = 1;
+
+die <DATA> unless @ARGV;
+
+GetOptions(
+    'input|i=s'       => \$input,
+    'output|o=s'      => \$output,
+    'duplication|d=i' => \$duplication,
+);
+
+unless ( $input or !@ARGV ) {
+    $input = shift @ARGV;
+}
+unless ( $output or !@ARGV ) {
+    $output = shift @ARGV;
+}
+$duplication = shift @ARGV if @ARGV;
+
+die <DATA> unless $input and $output;
+
+unless (check_sorted($input)) {
+    print "File $input is unsorted, sorting it now.\n";
+    system("bedSort $input $input") == 0 
+        or die "CMD: bedSort $input $input failed.\n";
+}
+
+my $in_file_name = $input;    # input file name
+open my $in, '<', $in_file_name
+  or die "$0 : failed to open  input file '$in_file_name' : $!\n";
+
+my $to_file_name = $output;    # output file name
+open my $to, '>', $to_file_name
+  or die "$0 : failed to open  output file '$to_file_name' : $!\n";
+
+my ( $pre_start, $count, $strand ) = ( -1 );
+
+my $kept = 0;
+# no need to consider strand information since they should come from the same
+# initial DNA segment. And since reads should be sequenced in the same length,
+# if reads mapped to the same start sites, they also should be duplicated,
+# hence I only need to consider the start site.
+while (<$in>) {
+    my @t = split /\t/;
+    if ( $t[1] == $pre_start ) {
+        if ( $count++ < $duplication ) {
+            $kept++;
+            print {$to} $_;
+        }
+    }
+    else {
+        $count     = 1;
+        $pre_start = $t[1];
+        $kept++;
+        print {$to} $_;
+    }
+}
+
+my $total = $.;
+
+close $to
+  or warn "$0 : failed to close output file '$to_file_name' : $!\n";
+
+close $in
+  or warn "$0 : failed to close input file '$in_file_name' : $!\n";
+
+print  "\tRaw reads\tKept reads\tKept ratio\n";
+printf "\t$total\t$kept\t%.2f%%\n", 100 * $kept / $total;
+
+sub check_sorted {
+    my ( %chrs, @pre_line );
+    open my $fin, '<', $_[0] or die "Can't open input bed file $_[0]. $!\n";
+    while ( <$fin> ) {
+        my @t = split;
+        if ( @t < 3 ) {
+            print "@t\n";
+            die "At least 3 items needed in a bed file. Pleaase check it.\n";
+        }
+
+        # check sorted or not
+        if (@pre_line) {
+            if ( $t[0] eq $pre_line[0] ) {   # same chromosome, check start site
+                if ( $t[1] < $pre_line[1] ) {
+                    return 0;                # unsorted bed file
+                }
+            }
+            else {    # new chromosome, check whether presented before
+                if ( exists $chrs{ $t[0] } ) {    # exists before, unsorted
+                    return 0;
+                }
+                $chrs{ $t[0] } = undef;           # add chromosome name
+            }
+        }
+        @pre_line = @t;
+    }
+    close $fin;
+
+    return 1;
+}
+
+=head only check 100 lines
+sub check_sorted {
+    my ( %chrs, @pre_line );
+    open my $fin, '<', $_[0] or die "Can't open input bed file $_[0]. $!\n";
+    my $line = 0;
+    while ( $line < 100 ) {
+        $line++;
+        my $l = <$fin>;
+        if ( not $l ) {    # less than 100 lines in bed file, file end
+            if ( not $line ) {    # empty file
+                die "Chromosomes not found in input bed file or it is empty.\n";
+            }
+            last;
+        }
+        my @t = split /\t/, $l;
+        if ( @t < 3 ) {
+            print "@t\n";
+            die "At least 3 items needed in a bed file. Pleaase check it.\n";
+        }
+
+        # check sorted or not
+        if (@pre_line) {
+            if ( $t[0] eq $pre_line[0] ) {   # same chromosome, check start site
+                if ( $t[1] < $pre_line[1] ) {
+                    return 0;                # unsorted bed file
+                }
+            }
+            else {    # new chromosome, check whether presented before
+                if ( exists $chrs{ $t[0] } ) {    # exists before, unsorted
+                    return 0;
+                }
+                $chrs{ $t[0] } = undef;           # add chromosome name
+            }
+        }
+        @pre_line = @t;
+    }
+    close $fin;
+
+  # have checked 100 lines and found they were sorted, think this file is sorted
+    return 1;
+}
+=cut
+
+__DATA__
+
+removeDupBed [-i] input.bed [-o] output.bed [[-d] 1]
+
+For unsorted bed file, removeDupBed will first use bedsort to sort it.
+
+-duplication, -d
+    Maximum duplication level allowed. For BED file which contains strand 
+    information, duplicated records will be filtered only on different strand.
+    Default is 1.
