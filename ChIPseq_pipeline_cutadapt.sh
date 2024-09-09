@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#sh ChIPseq_pipeline.sh input_fq1,input_fq2 out_dir out_label /picb/epigenome/data/genome/bowtie_indexes/mm10 10 0 0 1 genome_name gtf_path
+#sh ChIPseq_pipeline.sh input_fq1,input_fq2 out_dir out_label ./genome/bowtie_indexes/mm10 10 0 0 1 genome_name gtf_path
 
 fq=${1//,/ }
 out_dir=$2
