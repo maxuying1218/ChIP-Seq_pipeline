@@ -24,11 +24,8 @@ fi
 out_dir=`cd $out_dir|pwd`/${out_dir}
 cut_dir=${out_dir}/cutadapt
 bowtie_dir=${out_dir}/bowtie
-bed_norm_dir=${out_dir}/bed/no_rmdup
 bed_rm_dir=${out_dir}/bed/rmdup
 bw_dir=${out_dir}/bw
-#pro_tss_dir=${out_dir}/profile/5ktss5k
-#pro_gb_dir=${out_dir}/profile/u2kd1k
 macs_dir=${out_dir}/macs
 pkan_dir=${out_dir}/pkan
 
@@ -65,12 +62,11 @@ rm $bam
 rm ${bowtie_dir}/${out_label}.sam
 ###
 
-echo `date +%F": "%X`,": Bam to Bed ${out_label}!"
-bamToBed -i ${bowtie_dir}/${out_label}.sorted.bam|sort -S 5G --parallel=10 -k1,1 -k2,2n > ${bed_norm_dir}/${out_label}.bed
-#rm bowtie/${out_label}.sorted.bam*
+echo `date +%F": "%X`,": Remove duplicates ${out_label}!"
+picard MarkDuplicates REMOVE_DUPLICATES=true I=${bowtie_dir}/${out_label}.sorted.bam O=${bowtie_dir}/${out_label}.rmdup.bam > ${bowtie_dir}/logs/${out_label}.rmdup.txt
 
-removeDupBed -i ${bed_norm_dir}/${out_label}.bed -o ${bed_rm_dir}/${out_label}.bed > ${bed_rm_dir}/logs/${out_label}.txt
-rm ${bed_norm_dir}/${out_label}.bed
+echo `date +%F": "%X`,": Bam to Bed ${out_label}!"
+bamToBed -i ${bowtie_dir}/${out_label}.rmdup.bam|sort -S 5G --parallel=10 -k1,1 -k2,2n > ${bed_norm_dir}/${out_label}.bed
 
 echo `date +%F": "%X`,": Bed to bw ${out_label}!"
 cd ${bw_dir}
@@ -91,7 +87,7 @@ sed -i 's/\t-[0-9]*\t/\t0\t/g' ${out_label}_peaks.bed
 
 echo `date +%F": "%X`,": PeakAnnotate ${out_label}!"
 cd ${pkan_dir}
-peakAnnotate -p ${macs_dir}/${out_label}_peaks.bed -g ${gtf} -o ${out_label}.pkan |grep -v annotation > logs/${out_label}.pkan.log
+annotatePeaks.pl ${macs_dir}/${out_label}_peaks.bed $gn 1>${out_label}.peak_anno.xlsx 2>logs/${out_label}.pkan.log
 cd ${out_dir}
 
 echo `date +%F": "%X`,": Finished ${out_label}!"
