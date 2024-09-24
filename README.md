@@ -1,7 +1,7 @@
 # ChIP-Seq_pipeline
 A ChIP-Seq pipeline
 
-### Software requirement
+## Software requirement
 - cutadapt
 - bowtie
 - samtools
@@ -10,6 +10,8 @@ A ChIP-Seq pipeline
 - macs
 - picard
 - HOMER
+## Pipeline workflow
+![image](https://github.com/maxuying1218/ChIP-Seq_pipeline/blob/main/figures/workflow.png)
 
 ### Usage
 ```
